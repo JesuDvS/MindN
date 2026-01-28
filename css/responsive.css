@@ -70,6 +70,8 @@
 
     .chat-view {
         display: flex !important;
+        height: 100vh; /* 🔥 AÑADIR - asegura altura completa */
+        max-height: 100vh; /* 🔥 AÑADIR - previene overflow */
     }
 
     .default-view {
@@ -78,6 +80,8 @@
 
     .messages-container {
         padding: 12px;
+        flex: 1; /* 🔥 AÑADIR - toma espacio disponible */
+        min-height: 0; /* 🔥 AÑADIR - permite scroll correcto */
     }
 
     .message-bubble {
@@ -85,7 +89,7 @@
     }
 
     .chat-footer {
-        padding: 0;
+        flex-shrink: 0; /* 🔥 AÑADIR - previene que se comprima */
     }
 
     .chat-footer-input {

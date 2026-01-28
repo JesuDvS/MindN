@@ -74,6 +74,19 @@ const Storage = {
         });
     },
 
+    async clearAll() {
+        if (!this.db) await this.init();
+
+        return new Promise((resolve, reject) => {
+            const transaction = this.db.transaction(['chats', 'files'], 'readwrite');
+
+            transaction.objectStore('chats').clear();
+            transaction.objectStore('files').clear();
+
+            transaction.oncomplete = () => resolve(true);
+            transaction.onerror = () => reject(transaction.error);
+        });
+    },
     async saveChats() {
         if (!this.db) await this.init();
         

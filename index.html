@@ -29,7 +29,7 @@
                     </svg>
                     Cargar Datos Guardados
                 </button>
-                <input type="file" id="fileInput" accept=".json" style="display: none;">
+                <input type="file" id="fileInput" accept=".zip" style="display: none;">
             </div>
         </div>
     </div>
@@ -37,7 +37,7 @@
     <div id="app" style="display: none;">
         <div class="whatsapp-container">
             <!-- Panel lateral izquierdo -->
-            <aside class="sidebar">
+            <aside class="sidebar" id="sidebar">
                 <!-- Header del sidebar -->
                 <header class="sidebar-header">
                     <div class="user-info">
@@ -105,6 +105,11 @@
                 <div class="chat-view" id="chatView" style="display: none;">
                     <!-- Header del chat -->
                     <header class="chat-header">
+                        <button class="back-button" id="backButton">
+                            <svg viewBox="0 0 24 24" width="24" height="24">
+                                <path fill="currentColor" d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
+                            </svg>
+                        </button>
                         <div class="chat-header-info">
                             <div class="chat-icon" id="chatIcon"></div>
                             <div class="chat-info">
@@ -133,20 +138,35 @@
 
                     <!-- Footer con input de nota -->
                     <footer class="chat-footer">
-                        <button class="icon-btn" id="attachBtn" title="Adjuntar archivo">
-                            <svg viewBox="0 0 24 24" width="24" height="24">
-                                <path fill="currentColor" d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5v10.5c0 .55-.45 1-1 1s-1-.45-1-1V6H10v9.5c0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5V5c0-2.21-1.79-4-4-4S7 2.79 7 5v12.5c0 3.04 2.46 5.5 5.5 5.5s5.5-2.46 5.5-5.5V6h-1.5z"/>
-                            </svg>
-                        </button>
-                        <input type="file" id="fileAttach" multiple style="display: none;">
-                        <div class="message-input-wrapper">
-                            <textarea placeholder="Escribe una nota..." id="messageInput" rows="1"></textarea>
+                        <!-- Preview de archivos adjuntos -->
+                        <div class="attachments-preview" id="attachmentsPreview" style="display: none;">
+                            <div class="attachments-preview-header">
+                                <span>Archivos adjuntos</span>
+                                <button class="icon-btn-small" id="clearAttachments">
+                                    <svg viewBox="0 0 24 24" width="20" height="20">
+                                        <path fill="currentColor" d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                                    </svg>
+                                </button>
+                            </div>
+                            <div class="attachments-preview-list" id="attachmentsPreviewList"></div>
                         </div>
-                        <button class="icon-btn" id="sendBtn" title="Guardar nota">
-                            <svg viewBox="0 0 24 24" width="24" height="24">
-                                <path fill="currentColor" d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
-                            </svg>
-                        </button>
+
+                        <div class="chat-footer-input">
+                            <button class="icon-btn" id="attachBtn" title="Adjuntar archivo">
+                                <svg viewBox="0 0 24 24" width="24" height="24">
+                                    <path fill="currentColor" d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5v10.5c0 .55-.45 1-1 1s-1-.45-1-1V6H10v9.5c0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5V5c0-2.21-1.79-4-4-4S7 2.79 7 5v12.5c0 3.04 2.46 5.5 5.5 5.5s5.5-2.46 5.5-5.5V6h-1.5z"/>
+                                </svg>
+                            </button>
+                            <input type="file" id="fileAttach" multiple style="display: none;">
+                            <div class="message-input-wrapper">
+                                <textarea placeholder="Escribe una nota..." id="messageInput" rows="1"></textarea>
+                            </div>
+                            <button class="icon-btn" id="sendBtn" title="Guardar nota">
+                                <svg viewBox="0 0 24 24" width="24" height="24">
+                                    <path fill="currentColor" d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                                </svg>
+                            </button>
+                        </div>
                     </footer>
                 </div>
             </main>
@@ -192,6 +212,8 @@
         </div>
     </div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     <script src="js/router.js"></script>
     <script src="js/main.js"></script>
 </body>

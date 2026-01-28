@@ -3,22 +3,13 @@ const appState = {
     currentChat: null,
     chats: [],
     selectedIcon: '💡',
-    editingChatId: null
+    editingChatId: null,
+    pendingAttachments: [],
+    isMobile: window.innerWidth <= 480
 };
 
 // Utilidades para manejo de archivos
 const FileUtils = {
-    // Convertir archivo a base64
-    toBase64(file) {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result);
-            reader.onerror = reject;
-            reader.readAsDataURL(file);
-        });
-    },
-
-    // Formatear tamaño de archivo
     formatSize(bytes) {
         if (bytes === 0) return '0 Bytes';
         const k = 1024;
@@ -27,83 +18,283 @@ const FileUtils = {
         return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
     },
 
-    // Obtener extensión de archivo
     getExtension(filename) {
         return filename.slice((filename.lastIndexOf(".") - 1 >>> 0) + 2);
+    },
+
+    getMimeType(filename) {
+        const ext = this.getExtension(filename).toLowerCase();
+        const mimeTypes = {
+            'pdf': 'application/pdf',
+            'doc': 'application/msword',
+            'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'xls': 'application/vnd.ms-excel',
+            'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'txt': 'text/plain',
+            'jpg': 'image/jpeg',
+            'jpeg': 'image/jpeg',
+            'png': 'image/png',
+            'gif': 'image/gif'
+        };
+        return mimeTypes[ext] || 'application/octet-stream';
+    },
+
+    generateId() {
+        return Date.now() + '_' + Math.random().toString(36).substr(2, 9);
     }
 };
 
-// Gestión de almacenamiento
+// Gestión de almacenamiento con IndexedDB
 const Storage = {
-    save() {
-        const data = {
-            version: '1.0',
-            timestamp: new Date().toISOString(),
-            chats: appState.chats
-        };
-        localStorage.setItem('notechat_data', JSON.stringify(data));
-    },
+    dbName: 'notechat_db',
+    dbVersion: 1,
+    db: null,
 
-    load() {
-        const data = localStorage.getItem('notechat_data');
-        if (data) {
-            try {
-                const parsed = JSON.parse(data);
-                appState.chats = parsed.chats || [];
-                return true;
-            } catch (e) {
-                console.error('Error al cargar datos:', e);
-                return false;
-            }
-        }
-        return false;
-    },
-
-    export() {
-        const data = {
-            version: '1.0',
-            timestamp: new Date().toISOString(),
-            chats: appState.chats
-        };
-        
-        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `notechat_backup_${new Date().toISOString().split('T')[0]}.json`;
-        a.click();
-        URL.revokeObjectURL(url);
-    },
-
-    import(file) {
+    async init() {
         return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                try {
-                    const data = JSON.parse(e.target.result);
-                    if (data.chats && Array.isArray(data.chats)) {
-                        appState.chats = data.chats;
-                        Storage.save();
-                        resolve(true);
-                    } else {
-                        reject(new Error('Formato de archivo inválido'));
-                    }
-                } catch (error) {
-                    reject(error);
+            const request = indexedDB.open(this.dbName, this.dbVersion);
+
+            request.onerror = () => reject(request.error);
+            request.onsuccess = () => {
+                this.db = request.result;
+                resolve();
+            };
+
+            request.onupgradeneeded = (event) => {
+                const db = event.target.result;
+                
+                if (!db.objectStoreNames.contains('chats')) {
+                    db.createObjectStore('chats', { keyPath: 'id' });
+                }
+                
+                if (!db.objectStoreNames.contains('files')) {
+                    db.createObjectStore('files', { keyPath: 'id' });
                 }
             };
-            reader.onerror = reject;
-            reader.readAsText(file);
         });
+    },
+
+    async saveChats() {
+        if (!this.db) await this.init();
+        
+        const transaction = this.db.transaction(['chats'], 'readwrite');
+        const store = transaction.objectStore('chats');
+        
+        // Guardar cada chat
+        for (const chat of appState.chats) {
+            const chatToSave = { ...chat };
+            // Guardar solo referencias a archivos, no los datos
+            if (chatToSave.notes) {
+                chatToSave.notes = chatToSave.notes.map(note => ({
+                    ...note,
+                    attachments: note.attachments ? note.attachments.map(att => ({
+                        id: att.id,
+                        name: att.name,
+                        size: att.size,
+                        type: att.type,
+                        path: att.path
+                    })) : []
+                }));
+            }
+            store.put(chatToSave);
+        }
+    },
+
+    async loadChats() {
+        if (!this.db) await this.init();
+        
+        return new Promise((resolve, reject) => {
+            const transaction = this.db.transaction(['chats'], 'readonly');
+            const store = transaction.objectStore('chats');
+            const request = store.getAll();
+
+            request.onsuccess = () => {
+                appState.chats = request.result || [];
+                resolve(true);
+            };
+            request.onerror = () => reject(request.error);
+        });
+    },
+
+    async saveFile(fileId, blob) {
+        if (!this.db) await this.init();
+        
+        const transaction = this.db.transaction(['files'], 'readwrite');
+        const store = transaction.objectStore('files');
+        
+        store.put({ id: fileId, data: blob });
+    },
+
+    async getFile(fileId) {
+        if (!this.db) await this.init();
+        
+        return new Promise((resolve, reject) => {
+            const transaction = this.db.transaction(['files'], 'readonly');
+            const store = transaction.objectStore('files');
+            const request = store.get(fileId);
+
+            request.onsuccess = () => {
+                resolve(request.result ? request.result.data : null);
+            };
+            request.onerror = () => reject(request.error);
+        });
+    },
+
+    async exportToZip() {
+        const zip = new JSZip();
+        
+        // Crear estructura de carpetas
+        const dataFolder = zip.folder('notechat_data');
+        const filesFolder = dataFolder.folder('files');
+        
+        // Preparar datos de chats
+        const exportData = {
+            version: '1.0',
+            timestamp: new Date().toISOString(),
+            chats: []
+        };
+
+        // Procesar cada chat
+        for (const chat of appState.chats) {
+            const chatExport = {
+                ...chat,
+                notes: []
+            };
+
+            // Procesar notas y archivos
+            if (chat.notes) {
+                for (const note of chat.notes) {
+                    const noteExport = {
+                        ...note,
+                        attachments: []
+                    };
+
+                    // Guardar archivos adjuntos
+                    if (note.attachments) {
+                        for (const att of note.attachments) {
+                            const fileBlob = await Storage.getFile(att.id);
+                            if (fileBlob) {
+                                const filePath = `chat_${chat.id}/${att.id}_${att.name}`;
+                                filesFolder.file(filePath, fileBlob);
+                                
+                                noteExport.attachments.push({
+                                    name: att.name,
+                                    size: att.size,
+                                    type: att.type,
+                                    path: filePath
+                                });
+                            }
+                        }
+                    }
+
+                    chatExport.notes.push(noteExport);
+                }
+            }
+
+            exportData.chats.push(chatExport);
+        }
+
+        // Agregar archivo JSON con metadata
+        dataFolder.file('data.json', JSON.stringify(exportData, null, 2));
+
+        // Generar ZIP
+        const blob = await zip.generateAsync({ type: 'blob' });
+        saveAs(blob, `notechat_backup_${new Date().toISOString().split('T')[0]}.zip`);
+    },
+
+    async importFromZip(file) {
+        const zip = await JSZip.loadAsync(file);
+        
+        // Leer archivo JSON
+        const dataFile = zip.file('notechat_data/data.json');
+        if (!dataFile) {
+            throw new Error('Archivo de datos no encontrado en el ZIP');
+        }
+
+        const jsonContent = await dataFile.async('string');
+        const data = JSON.parse(jsonContent);
+
+        if (!data.chats || !Array.isArray(data.chats)) {
+            throw new Error('Formato de datos inválido');
+        }
+
+        // Limpiar datos anteriores
+        appState.chats = [];
+
+        // Procesar cada chat
+        for (const chat of data.chats) {
+            const chatImport = {
+                ...chat,
+                notes: []
+            };
+
+            // Procesar notas
+            if (chat.notes) {
+                for (const note of chat.notes) {
+                    const noteImport = {
+                        ...note,
+                        attachments: []
+                    };
+
+                    // Importar archivos adjuntos
+                    if (note.attachments) {
+                        for (const att of note.attachments) {
+                            const filePath = `notechat_data/files/${att.path}`;
+                            const fileData = zip.file(filePath);
+                            
+                            if (fileData) {
+                                const blob = await fileData.async('blob');
+                                const fileId = FileUtils.generateId();
+                                
+                                // Guardar archivo en IndexedDB
+                                await Storage.saveFile(fileId, blob);
+                                
+                                noteImport.attachments.push({
+                                    id: fileId,
+                                    name: att.name,
+                                    size: att.size,
+                                    type: att.type,
+                                    path: att.path
+                                });
+                            }
+                        }
+                    }
+
+                    chatImport.notes.push(noteImport);
+                }
+            }
+
+            appState.chats.push(chatImport);
+        }
+
+        await Storage.saveChats();
+        return true;
+    }
+};
+
+// Gestión de vista móvil
+const MobileView = {
+    showSidebar() {
+        if (appState.isMobile) {
+            document.getElementById('sidebar').classList.remove('hidden');
+            document.getElementById('chatView').parentElement.classList.remove('active');
+        }
+    },
+
+    showChat() {
+        if (appState.isMobile) {
+            document.getElementById('sidebar').classList.add('hidden');
+            document.getElementById('chatView').parentElement.classList.add('active');
+        }
     }
 };
 
 // Inicializar la aplicación
-function init() {
-    // Verificar si hay datos guardados
-    const hasData = Storage.load();
+async function init() {
+    await Storage.init();
+    const hasData = await Storage.loadChats();
     
-    if (hasData) {
+    if (hasData && appState.chats.length > 0) {
         showApp();
         renderChats();
     } else {
@@ -111,6 +302,11 @@ function init() {
     }
     
     setupEventListeners();
+    
+    // Detectar cambios de tamaño de pantalla
+    window.addEventListener('resize', () => {
+        appState.isMobile = window.innerWidth <= 480;
+    });
 }
 
 // Mostrar modal de inicio
@@ -197,8 +393,12 @@ function openChat(chatId) {
     if (chatItem) chatItem.classList.add('active');
 
     // Mostrar vista de chat
-    document.getElementById('defaultView').style.display = 'none';
-    document.getElementById('chatView').style.display = 'flex';
+    if (appState.isMobile) {
+        MobileView.showChat();
+    } else {
+        document.getElementById('defaultView').style.display = 'none';
+        document.getElementById('chatView').style.display = 'flex';
+    }
 
     // Actualizar información del chat
     document.getElementById('chatName').textContent = chat.name;
@@ -210,7 +410,7 @@ function openChat(chatId) {
 }
 
 // Renderizar notas
-function renderNotes(chatId) {
+async function renderNotes(chatId) {
     const container = document.getElementById('messagesContainer');
     const chat = appState.chats.find(c => c.id === chatId);
     
@@ -228,17 +428,17 @@ function renderNotes(chatId) {
     }
 
     container.innerHTML = '';
-    chat.notes.forEach(note => {
-        const noteEl = createNoteElement(note);
+    for (const note of chat.notes) {
+        const noteEl = await createNoteElement(note);
         container.appendChild(noteEl);
-    });
+    }
 
     // Scroll al final
     container.scrollTop = container.scrollHeight;
 }
 
 // Crear elemento de nota
-function createNoteElement(note) {
+async function createNoteElement(note) {
     const div = document.createElement('div');
     div.className = 'message';
     
@@ -247,9 +447,9 @@ function createNoteElement(note) {
     let attachmentsHtml = '';
     if (note.attachments && note.attachments.length > 0) {
         attachmentsHtml = '<div class="message-attachments">';
-        note.attachments.forEach(att => {
+        for (const att of note.attachments) {
             attachmentsHtml += `
-                <div class="attachment">
+                <div class="attachment" data-file-id="${att.id}" data-file-name="${att.name}">
                     <svg viewBox="0 0 24 24" width="20" height="20">
                         <path fill="currentColor" d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/>
                     </svg>
@@ -259,7 +459,7 @@ function createNoteElement(note) {
                     </div>
                 </div>
             `;
-        });
+        }
         attachmentsHtml += '</div>';
     }
     
@@ -271,40 +471,103 @@ function createNoteElement(note) {
         </div>
     `;
 
+    // Agregar event listeners para descargar archivos
+    div.querySelectorAll('.attachment').forEach(attEl => {
+        attEl.addEventListener('click', async () => {
+            const fileId = attEl.dataset.fileId;
+            const fileName = attEl.dataset.fileName;
+            await downloadFile(fileId, fileName);
+        });
+    });
+
     return div;
+}
+
+// Descargar archivo
+async function downloadFile(fileId, fileName) {
+    try {
+        const blob = await Storage.getFile(fileId);
+        if (blob) {
+            saveAs(blob, fileName);
+        } else {
+            alert('Archivo no encontrado');
+        }
+    } catch (error) {
+        console.error('Error al descargar archivo:', error);
+        alert('Error al descargar el archivo');
+    }
+}
+
+// Gestionar archivos adjuntos pendientes
+function updateAttachmentsPreview() {
+    const preview = document.getElementById('attachmentsPreview');
+    const previewList = document.getElementById('attachmentsPreviewList');
+
+    if (appState.pendingAttachments.length === 0) {
+        preview.style.display = 'none';
+        return;
+    }
+
+    preview.style.display = 'block';
+    previewList.innerHTML = '';
+
+    appState.pendingAttachments.forEach((file, index) => {
+        const item = document.createElement('div');
+        item.className = 'attachment-preview-item';
+        item.innerHTML = `
+            <svg viewBox="0 0 24 24" width="16" height="16">
+                <path fill="currentColor" d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6z"/>
+            </svg>
+            <span>${file.name}</span>
+            <button data-index="${index}">
+                <svg viewBox="0 0 24 24" width="14" height="14">
+                    <path fill="currentColor" d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                </svg>
+            </button>
+        `;
+
+        const removeBtn = item.querySelector('button');
+        removeBtn.addEventListener('click', () => {
+            appState.pendingAttachments.splice(index, 1);
+            updateAttachmentsPreview();
+        });
+
+        previewList.appendChild(item);
+    });
 }
 
 // Agregar nota
 async function addNote() {
     const input = document.getElementById('messageInput');
     const text = input.value.trim();
-    const fileInput = document.getElementById('fileAttach');
-    const files = fileInput.files;
 
-    if (!text && files.length === 0) return;
+    if (!text && appState.pendingAttachments.length === 0) return;
     if (!appState.currentChat) return;
 
     const chat = appState.chats.find(c => c.id === appState.currentChat);
     if (!chat) return;
 
     const note = {
-        id: Date.now(),
+        id: FileUtils.generateId(),
         text: text,
         timestamp: new Date().toISOString(),
         attachments: []
     };
 
     // Procesar archivos adjuntos
-    if (files.length > 0) {
-        for (let file of files) {
-            const attachment = {
-                name: file.name,
-                size: FileUtils.formatSize(file.size),
-                type: file.type,
-                data: await FileUtils.toBase64(file)
-            };
-            note.attachments.push(attachment);
-        }
+    for (const file of appState.pendingAttachments) {
+        const fileId = FileUtils.generateId();
+        
+        // Guardar archivo en IndexedDB
+        await Storage.saveFile(fileId, file);
+        
+        const attachment = {
+            id: fileId,
+            name: file.name,
+            size: FileUtils.formatSize(file.size),
+            type: file.type
+        };
+        note.attachments.push(attachment);
     }
 
     // Agregar nota al chat
@@ -312,20 +575,21 @@ async function addNote() {
     chat.notes.push(note);
 
     // Guardar
-    Storage.save();
+    await Storage.saveChats();
 
     // Actualizar UI
-    renderNotes(appState.currentChat);
+    await renderNotes(appState.currentChat);
     renderChats();
     
     // Limpiar inputs
     input.value = '';
-    fileInput.value = '';
     input.style.height = 'auto';
+    appState.pendingAttachments = [];
+    updateAttachmentsPreview();
 }
 
 // Crear/Editar chat
-function saveChat() {
+async function saveChat() {
     const nameInput = document.getElementById('chatNameInput');
     const descInput = document.getElementById('chatDescInput');
     
@@ -338,7 +602,6 @@ function saveChat() {
     }
 
     if (appState.editingChatId) {
-        // Editar chat existente
         const chat = appState.chats.find(c => c.id === appState.editingChatId);
         if (chat) {
             chat.name = name;
@@ -346,9 +609,8 @@ function saveChat() {
             chat.icon = appState.selectedIcon;
         }
     } else {
-        // Crear nuevo chat
         const chat = {
-            id: Date.now(),
+            id: FileUtils.generateId(),
             name: name,
             description: description,
             icon: appState.selectedIcon,
@@ -358,11 +620,10 @@ function saveChat() {
         appState.chats.unshift(chat);
     }
 
-    Storage.save();
+    await Storage.saveChats();
     renderChats();
     closeChatModal();
     
-    // Si se creó un nuevo chat, abrirlo
     if (!appState.editingChatId) {
         openChat(appState.chats[0].id);
     } else if (appState.currentChat === appState.editingChatId) {
@@ -371,16 +632,21 @@ function saveChat() {
 }
 
 // Eliminar chat
-function deleteChat() {
+async function deleteChat() {
     if (!appState.currentChat) return;
     
     if (confirm('¿Estás seguro de eliminar este chat? Se perderán todas las notas.')) {
         appState.chats = appState.chats.filter(c => c.id !== appState.currentChat);
-        Storage.save();
+        await Storage.saveChats();
         appState.currentChat = null;
         renderChats();
-        document.getElementById('defaultView').style.display = 'flex';
-        document.getElementById('chatView').style.display = 'none';
+        
+        if (appState.isMobile) {
+            MobileView.showSidebar();
+        } else {
+            document.getElementById('defaultView').style.display = 'flex';
+            document.getElementById('chatView').style.display = 'none';
+        }
     }
 }
 
@@ -470,9 +736,10 @@ function setupEventListeners() {
         const file = e.target.files[0];
         if (file) {
             try {
-                await Storage.import(file);
+                await Storage.importFromZip(file);
                 showApp();
                 renderChats();
+                alert('Datos importados correctamente');
             } catch (error) {
                 alert('Error al cargar el archivo: ' + error.message);
             }
@@ -481,16 +748,24 @@ function setupEventListeners() {
 
     // Botones principales
     document.getElementById('addChatBtn')?.addEventListener('click', () => openChatModal(false));
-    document.getElementById('exportBtn')?.addEventListener('click', () => Storage.export());
+    
+    document.getElementById('exportBtn')?.addEventListener('click', async () => {
+        try {
+            await Storage.exportToZip();
+        } catch (error) {
+            alert('Error al exportar: ' + error.message);
+        }
+    });
+    
     document.getElementById('importBtn')?.addEventListener('click', () => {
         const input = document.createElement('input');
         input.type = 'file';
-        input.accept = '.json';
+        input.accept = '.zip';
         input.onchange = async (e) => {
             const file = e.target.files[0];
             if (file) {
                 try {
-                    await Storage.import(file);
+                    await Storage.importFromZip(file);
                     renderChats();
                     alert('Datos importados correctamente');
                 } catch (error) {
@@ -499,6 +774,11 @@ function setupEventListeners() {
             }
         };
         input.click();
+    });
+
+    // Botón de retroceso (móvil)
+    document.getElementById('backButton')?.addEventListener('click', () => {
+        MobileView.showSidebar();
     });
 
     // Botones de chat
@@ -541,6 +821,19 @@ function setupEventListeners() {
         document.getElementById('fileAttach').click();
     });
 
+    document.getElementById('fileAttach')?.addEventListener('change', (e) => {
+        const files = Array.from(e.target.files);
+        appState.pendingAttachments.push(...files);
+        updateAttachmentsPreview();
+        e.target.value = '';
+    });
+
+    // Limpiar archivos adjuntos
+    document.getElementById('clearAttachments')?.addEventListener('click', () => {
+        appState.pendingAttachments = [];
+        updateAttachmentsPreview();
+    });
+
     // Búsqueda
     const searchInput = document.getElementById('searchInput');
     searchInput?.addEventListener('input', (e) => {
@@ -549,11 +842,6 @@ function setupEventListeners() {
         } else {
             searchChats(e.target.value);
         }
-    });
-
-    // Guardar automáticamente antes de cerrar
-    window.addEventListener('beforeunload', () => {
-        Storage.save();
     });
 }
 

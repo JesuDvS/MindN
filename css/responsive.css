@@ -10,33 +10,18 @@
 }
 
 /* Tablets pequeñas */
-@media (max-width: 768px) {
-    .whatsapp-container {
-        flex-direction: column;
-    }
-
+/* @media (max-width: 768px) {
     .sidebar {
-        width: 100%;
-        max-height: 40%;
-        border-right: none;
-        border-bottom: 1px solid var(--border-color);
-    }
-
-    .chat-panel {
-        flex: 1;
+        width: 350px;
     }
 
     .messages-container {
-        padding: 20px 20px;
+        padding: 20px 40px;
     }
-
-    .message-bubble {
-        max-width: 75%;
-    }
-}
+} */
 
 /* Móviles - SECCIÓN CRÍTICA MEJORADA */
-@media (max-width: 480px) {
+@media (max-width: 768px) {
     html {
         height: 100%;
     }

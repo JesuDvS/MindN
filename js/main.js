@@ -288,17 +288,17 @@ const Storage = {
 // Gestión de vista móvil
 const MobileView = {
     showSidebar() {
-        if (appState.isMobile) {
+        //if (appState.isMobile) {
             document.getElementById('sidebar').classList.remove('hidden');
             document.getElementById('chatView').parentElement.classList.remove('active');
-        }
+        //}
     },
 
     showChat() {
-        if (appState.isMobile) {
+        //if (appState.isMobile) {
             document.getElementById('sidebar').classList.add('hidden');
             document.getElementById('chatView').parentElement.classList.add('active');
-        }
+        //}
     }
 };
 // NUEVA FUNCIÓN: Resetear toda la aplicación
@@ -403,13 +403,14 @@ function createChatItem(chat) {
     const lastNote = chat.notes && chat.notes.length > 0 ? chat.notes[chat.notes.length - 1] : null;
     const preview = lastNote ? (lastNote.text || 'Archivo adjunto') : 'Sin notas';
     const time = lastNote ? new Date(lastNote.timestamp).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : '';
+    const date = lastNote ? new Date(lastNote.timestamp).toLocaleDateString('es-ES') : '';
     
     div.innerHTML = `
         <div class="chat-item-icon">${chat.icon}</div>
         <div class="chat-item-content">
             <div class="chat-item-header">
                 <span class="chat-item-name">${chat.name}</span>
-                <span class="chat-item-time">${time}</span>
+                <span class="chat-item-time">${date + "-" + time}</span>
             </div>
             <div class="chat-item-preview">${preview}</div>
             ${chat.notes && chat.notes.length > 0 ? `
@@ -441,6 +442,8 @@ function openChat(chatId) {
     // Mostrar vista de chat
     if (appState.isMobile) {
         MobileView.showChat();
+    } else if (window.innerWidth <= 768 && window.innerWidth > 480) {
+        MobileView.showChat();
     } else {
         document.getElementById('defaultView').style.display = 'none';
         document.getElementById('chatView').style.display = 'flex';
@@ -454,7 +457,25 @@ function openChat(chatId) {
     // Renderizar notas
     renderNotes(chatId);
 }
-
+// Eliminar chat
+async function deleteChat() {
+    if (!appState.currentChat) return;
+    
+    if (confirm('¿Estás seguro de eliminar este chat? Se perderán todas las notas.')) {
+        appState.chats = appState.chats.filter(c => c.id !== appState.currentChat);
+        await Storage.saveChats();
+        appState.currentChat = null;
+        renderChats();
+        if (appState.isMobile) {
+            MobileView.showSidebar();
+        } else if (window.innerWidth <= 768 && window.innerWidth > 480) {
+            MobileView.showSidebar();
+        } else {
+            document.getElementById('defaultView').style.display = 'flex';
+            document.getElementById('chatView').style.display = 'none';
+        }
+    }
+}
 // Renderizar notas
 async function renderNotes(chatId) {
     const container = document.getElementById('messagesContainer');
@@ -489,7 +510,7 @@ async function createNoteElement(note) {
     div.className = 'message';
     
     const time = new Date(note.timestamp).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-    
+    const date = new Date(note.timestamp).toLocaleDateString('es-ES');
     let attachmentsHtml = '';
     if (note.attachments && note.attachments.length > 0) {
         attachmentsHtml = '<div class="message-attachments">';
@@ -513,7 +534,7 @@ async function createNoteElement(note) {
         <div class="message-bubble">
             ${note.text ? `<div class="message-text">${note.text}</div>` : ''}
             ${attachmentsHtml}
-            <div class="message-time">${time}</div>
+            <div class="message-time">${time + " - " + date}</div>
         </div>
     `;
 
@@ -677,24 +698,7 @@ async function saveChat() {
     }
 }
 
-// Eliminar chat
-async function deleteChat() {
-    if (!appState.currentChat) return;
-    
-    if (confirm('¿Estás seguro de eliminar este chat? Se perderán todas las notas.')) {
-        appState.chats = appState.chats.filter(c => c.id !== appState.currentChat);
-        await Storage.saveChats();
-        appState.currentChat = null;
-        renderChats();
-        
-        if (appState.isMobile) {
-            MobileView.showSidebar();
-        } else {
-            document.getElementById('defaultView').style.display = 'flex';
-            document.getElementById('chatView').style.display = 'none';
-        }
-    }
-}
+
 
 // Abrir modal de chat
 function openChatModal(editMode = false) {

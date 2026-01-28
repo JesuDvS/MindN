@@ -37,39 +37,31 @@
 
 /* Móviles - SECCIÓN CRÍTICA MEJORADA */
 @media (max-width: 480px) {
-    /* FIX: Asegurar que body y html tienen la altura correcta */
-    html, body {
+    html {
         height: 100%;
-        height: 100dvh;
+    }
+
+    body {
+        height: 100%;
         overflow: hidden;
-        position: fixed;
-        width: 100%;
+        position: relative;
     }
 
     #app {
         background-color: var(--sidebar-bg);
-        height: 100vh;
-        height: 100dvh;
+        height: 100%;
     }
 
     .whatsapp-container {
-        height: 100vh;
-        height: 100dvh;
+        height: 100%;
         max-width: 100%;
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
     }
 
-    /* Sidebar oculto por defecto en móvil */
     .sidebar {
         width: 100%;
         display: flex;
         max-height: 100%;
-        height: 100vh;
-        height: 100dvh;
+        height: 100%;
         position: relative;
     }
 
@@ -77,40 +69,29 @@
         display: none;
     }
 
-    /* Chat panel mejorado para móviles */
     .chat-panel {
         width: 100%;
         display: none;
-        height: 100vh;
-        height: 100dvh;
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
+        height: 100%;
     }
 
     .chat-panel.active {
         display: flex;
     }
 
-    /* FIX PRINCIPAL: Chat view con altura correcta */
+    /* FIX CRÍTICO: Chat view sin altura fija */
     .chat-view {
         display: flex !important;
-        height: 100vh;
-        height: 100dvh;
-        max-height: 100vh;
-        max-height: 100dvh;
+        flex: 1;
         flex-direction: column;
         overflow: hidden;
-        position: relative;
     }
 
     .default-view {
         display: none;
     }
 
-    /* FIX: Mensajes container optimizado */
+    /* Contenedor de mensajes */
     .messages-container {
         padding: 12px;
         flex: 1;
@@ -118,40 +99,24 @@
         overflow-y: auto;
         overflow-x: hidden;
         -webkit-overflow-scrolling: touch;
-        /* Prevenir que el teclado móvil afecte el scroll */
-        overscroll-behavior: contain;
     }
 
     .message-bubble {
         max-width: 85%;
     }
 
-    /* FIX CRÍTICO: Chat footer siempre visible */
+    /* Footer fijo al fondo */
     .chat-footer {
         flex-shrink: 0;
-        position: relative;
-        z-index: 10;
-        /* Prevenir que se esconda detrás del teclado */
-        bottom: 0;
-        left: 0;
-        right: 0;
     }
 
     .chat-footer-input {
         padding: 8px 12px;
-        /* Asegurar que sea visible incluso con el teclado */
-        min-height: 60px;
     }
 
-    /* FIX: Input de mensajes mejorado */
-    .message-input-wrapper {
-        flex: 1;
-        min-height: 40px;
-    }
-
+    /* Prevenir zoom en iOS */
     .message-input-wrapper textarea {
-        font-size: 16px; /* Prevenir zoom automático en iOS */
-        min-height: 40px;
+        font-size: 16px;
     }
 
     .default-content h2 {
@@ -172,7 +137,6 @@
         height: 36px;
     }
 
-    /* Botón para volver en móvil */
     .back-button {
         display: flex;
     }
@@ -185,25 +149,11 @@
         max-width: 100px;
     }
 
-    /* FIX: Prevenir problemas con el teclado virtual */
-    .chat-header {
-        flex-shrink: 0;
-        position: relative;
-        z-index: 11;
-    }
-
-    /* FIX: Asegurar que los modales funcionen bien */
-    .modal {
-        position: fixed;
-        z-index: 1000;
-        height: 100vh;
-        height: 100dvh;
-    }
-
-    .modal-content {
-        max-height: 85vh;
-        max-height: 85dvh;
-        overflow-y: auto;
+    /* Prevenir zoom en inputs */
+    input[type="text"],
+    input[type="search"],
+    textarea {
+        font-size: 16px !important;
     }
 }
 

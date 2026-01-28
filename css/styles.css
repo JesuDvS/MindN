@@ -26,16 +26,10 @@ body {
     background-color: var(--background);
     color: var(--text-primary);
     overflow: hidden;
-    /* FIX: Prevenir problemas de altura en móviles */
-    position: fixed;
-    width: 100%;
-    height: 100%;
 }
 
 #app {
     height: 100vh;
-    /* FIX: Usar altura dinámica del viewport en móviles */
-    height: 100dvh;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -45,7 +39,6 @@ body {
     width: 100%;
     max-width: 1600px;
     height: 100vh;
-    height: 100dvh;
     display: flex;
     background-color: var(--chat-bg);
 }

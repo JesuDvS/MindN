@@ -288,7 +288,40 @@ const MobileView = {
         }
     }
 };
-
+// NUEVA FUNCIÓN: Resetear toda la aplicación
+async function resetApplication() {
+    const confirmation = confirm('⚠️ ¿Estás seguro de que deseas borrar TODOS los datos?\n\nEsta acción eliminará:\n• Todos los chats\n• Todas las notas\n• Todos los archivos adjuntos\n\nEsta acción NO se puede deshacer.');
+    
+    if (!confirmation) return;
+    
+    // Doble confirmación para seguridad
+    const doubleConfirm = confirm('Esta es tu última oportunidad.\n\n¿Realmente deseas continuar y borrar todo?');
+    
+    if (!doubleConfirm) return;
+    
+    try {
+        // Limpiar estado de la aplicación
+        appState.currentChat = null;
+        appState.chats = [];
+        appState.pendingAttachments = [];
+        appState.editingChatId = null;
+        
+        // Limpiar IndexedDB
+        await Storage.clearAll();
+        
+        // Volver a la pantalla inicial
+        showStartModal();
+        
+        // Limpiar UI
+        document.getElementById('chatsList').innerHTML = '';
+        document.getElementById('messagesContainer').innerHTML = '';
+        
+        alert('✓ Todos los datos han sido borrados exitosamente.');
+    } catch (error) {
+        console.error('Error al resetear la aplicación:', error);
+        alert('Error al borrar los datos: ' + error.message);
+    }
+}
 // Inicializar la aplicación
 async function init() {
     await Storage.init();
@@ -775,6 +808,8 @@ function setupEventListeners() {
         };
         input.click();
     });
+    // NUEVO: Botón de reset
+    document.getElementById('resetBtn')?.addEventListener('click', resetApplication);
 
     // Botón de retroceso (móvil)
     document.getElementById('backButton')?.addEventListener('click', () => {

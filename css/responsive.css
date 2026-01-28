@@ -1,0 +1,160 @@
+/* Tablets y pantallas medianas */
+@media (max-width: 1024px) {
+    .sidebar {
+        width: 350px;
+    }
+
+    .messages-container {
+        padding: 20px 40px;
+    }
+}
+
+/* Tablets pequeñas */
+@media (max-width: 768px) {
+    .whatsapp-container {
+        flex-direction: column;
+    }
+
+    .sidebar {
+        width: 100%;
+        max-height: 40%;
+        border-right: none;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .chat-panel {
+        flex: 1;
+    }
+
+    .messages-container {
+        padding: 20px 20px;
+    }
+
+    .message-bubble {
+        max-width: 75%;
+    }
+}
+
+/* Móviles */
+@media (max-width: 480px) {
+    #app {
+        background-color: var(--sidebar-bg);
+    }
+
+    .whatsapp-container {
+        height: 100vh;
+        max-width: 100%;
+    }
+
+    .sidebar {
+        width: 100%;
+        display: none;
+    }
+
+    .sidebar.active {
+        display: flex;
+        max-height: 100%;
+    }
+
+    .chat-panel {
+        width: 100%;
+    }
+
+    .chat-view {
+        display: none;
+    }
+
+    .chat-view.active {
+        display: flex;
+    }
+
+    .default-view {
+        display: none;
+    }
+
+    .messages-container {
+        padding: 12px;
+    }
+
+    .message-bubble {
+        max-width: 85%;
+    }
+
+    .chat-footer {
+        padding: 8px 12px;
+    }
+
+    .default-content h2 {
+        font-size: 24px;
+    }
+
+    .default-content p {
+        font-size: 13px;
+    }
+
+    .chat-header-info img {
+        width: 36px;
+        height: 36px;
+    }
+
+    .user-avatar {
+        width: 36px;
+        height: 36px;
+    }
+
+    /* Botón para volver en móvil */
+    .back-button {
+        display: flex;
+        margin-right: 8px;
+    }
+}
+
+/* Escritorio grande */
+@media (min-width: 1600px) {
+    .sidebar {
+        width: 450px;
+    }
+
+    .messages-container {
+        padding: 20px 120px;
+    }
+}
+
+/* Clases auxiliares para móvil */
+.mobile-only {
+    display: none;
+}
+
+@media (max-width: 480px) {
+    .mobile-only {
+        display: block;
+    }
+
+    .desktop-only {
+        display: none;
+    }
+}
+
+/* Animaciones */
+@media (prefers-reduced-motion: no-preference) {
+    .chat-item,
+    .icon-btn,
+    .message {
+        transition: all 0.2s ease;
+    }
+
+    .message {
+        animation: slideIn 0.2s ease;
+    }
+
+    @keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+}
